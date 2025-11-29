@@ -1,8 +1,8 @@
-# 🚀 Time Series Forecasting Platform
+# Time Series Forecasting Platform
 
 An AI-powered time series forecasting platform with AutoML capabilities. Upload your data, automatically train and compare multiple forecasting models, and generate accurate predictions with confidence intervals.
 
-## 📸 Screenshots
+## Screenshots
 
 ### Dashboard
 ![Dashboard](docs/images/dashboard.png)
@@ -16,17 +16,17 @@ An AI-powered time series forecasting platform with AutoML capabilities. Upload 
 ### Forecast Generation
 ![Forecasts](docs/images/forecasts.png)
 
-## ✨ Features
+## Features
 
-- **📊 Dataset Management**: Upload CSV/Excel files, automatic data profiling
-- **🤖 AutoML Training**: Automatic model selection and hyperparameter tuning
-- **📈 Multiple Algorithms**: Prophet, ARIMA, XGBoost, LightGBM
-- **🎯 Model Comparison**: Side-by-side performance metrics (MAPE, RMSE, MAE)
-- **🔮 Forecast Generation**: Generate predictions with confidence intervals
-- **�� Interactive Visualizations**: Beautiful charts powered by Recharts
-- **🐳 Docker Ready**: Easy deployment with Docker Compose
+- **Dataset Management**: Upload CSV/Excel files, automatic data profiling
+- **AutoML Training**: Automatic model selection and hyperparameter tuning
+- **Multiple Algorithms**: Prophet, ARIMA, XGBoost, LightGBM
+- **Model Comparison**: Side-by-side performance metrics (MAPE, RMSE, MAE)
+- **Forecast Generation**: Generate predictions with confidence intervals
+- **Interactive Visualizations**: Beautiful charts powered by Recharts
+- **Docker Ready**: Easy deployment with Docker Compose
 
-## 🏗️ Architecture
+## Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    React Frontend                            │
@@ -53,7 +53,7 @@ An AI-powered time series forecasting platform with AutoML capabilities. Upload 
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Option 1: Docker (Recommended)
 ```bash
@@ -99,7 +99,7 @@ npm start
 
 Access the application at `http://localhost:3000`
 
-## 📖 Usage Guide
+## Usage Guide
 
 ### 1. Upload Dataset
 
@@ -129,7 +129,7 @@ Navigate to the **Forecasts** page:
 3. Choose confidence level (90%, 95%, 99%)
 4. Click "Generate Forecast"
 
-## 📊 Supported Algorithms
+## Supported Algorithms
 
 | Algorithm | Type | Best For |
 |-----------|------|----------|
@@ -138,7 +138,7 @@ Navigate to the **Forecasts** page:
 | XGBoost | ML | Complex patterns, feature-rich data |
 | LightGBM | ML | Large datasets, fast training |
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 ```bash
@@ -153,7 +153,7 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:8001
 LOG_LEVEL=INFO
 ```
 
-## 📁 Project Structure
+## Project Structure
 ```
 time-series-forecasting-platform/
 ├── backend/
@@ -183,7 +183,7 @@ time-series-forecasting-platform/
 └── README.md
 ```
 
-## 🧪 API Documentation
+## API Documentation
 
 Once running, access the interactive API docs at:
 - Swagger UI: `http://localhost:8001/docs`
@@ -199,16 +199,16 @@ Once running, access the interactive API docs at:
 | GET | `/api/v1/training/models` | List models |
 | POST | `/api/v1/forecast/` | Generate forecast |
 
-## 📈 Performance Metrics
+## Performance Metrics
 
 The platform evaluates models using:
 
 - **MAPE** (Mean Absolute Percentage Error) - Primary metric
 - **RMSE** (Root Mean Square Error)
 - **MAE** (Mean Absolute Error)
-- **R²** (Coefficient of Determination)
+- **R2** (Coefficient of Determination)
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 - **FastAPI** - Modern Python web framework
@@ -225,7 +225,7 @@ The platform evaluates models using:
 - **Recharts** - Data visualization
 - **Axios** - HTTP client
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -235,17 +235,17 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👤 Author
+## Author
 
 **Olawale Badekale**
 - GitHub: [@cuthbertola](https://github.com/cuthbertola)
 - LinkedIn: [Olawale Badekale](https://linkedin.com/in/olawale-badekale)
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Prophet](https://facebook.github.io/prophet/) by Meta
 - [Optuna](https://optuna.org/) for hyperparameter optimization
