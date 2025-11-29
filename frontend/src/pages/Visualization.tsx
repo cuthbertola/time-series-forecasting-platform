@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, Legend, ResponsiveContainer, ComposedChart, Area 
+  Tooltip, Legend, ResponsiveContainer, ComposedChart
 } from 'recharts';
-import { BarChart3, TrendingUp, Calendar, Activity } from 'lucide-react';
+import { BarChart3, TrendingUp, Calendar, Activity, AlertCircle } from 'lucide-react';
 import { getDatasets, getHistoricalData, getDatasetStatistics, getSeasonalityAnalysis } from '../services/api';
 
 interface Dataset {
   id: number;
   name: string;
   status: string;
+  date_column: string | null;
+  target_column: string | null;
 }
 
 const Visualization: React.FC = () => {
@@ -19,6 +21,7 @@ const Visualization: React.FC = () => {
   const [statistics, setStatistics] = useState<any>(null);
   const [seasonality, setSeasonality] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'historical' | 'seasonality' | 'statistics'>('historical');
 
   useEffect(() => {
@@ -33,15 +36,30 @@ const Visualization: React.FC = () => {
 
   const fetchDatasets = async () => {
     try {
-      const data = await getDatasets();
-      setDatasets(data.filter((d: Dataset) => d.status === 'ready'));
+      const response = await getDatasets();
+      console.log('Fetched datasets response:', response);
+      
+      // Handle both array and object with datasets property
+      const data = Array.isArray(response) ? response : (response.datasets || response);
+      console.log('Dataset data:', data);
+      
+      if (Array.isArray(data)) {
+        const readyDatasets = data.filter((d: Dataset) => d.status === 'ready');
+        console.log('Ready datasets:', readyDatasets);
+        setDatasets(readyDatasets);
+      } else {
+        console.error('Unexpected data format:', data);
+        setDatasets([]);
+      }
     } catch (error) {
       console.error('Error fetching datasets:', error);
+      setError('Failed to load datasets');
     }
   };
 
   const fetchVisualizationData = async (datasetId: number) => {
     setLoading(true);
+    setError(null);
     try {
       const [hist, stats, season] = await Promise.all([
         getHistoricalData(datasetId),
@@ -51,8 +69,9 @@ const Visualization: React.FC = () => {
       setHistoricalData(hist);
       setStatistics(stats);
       setSeasonality(season);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching visualization data:', error);
+      setError(error.response?.data?.detail || 'Failed to load visualization data.');
     } finally {
       setLoading(false);
     }
@@ -62,221 +81,212 @@ const Visualization: React.FC = () => {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-gray-900">Data Visualization</h1>
 
-      {/* Dataset Selection */}
       <div className="bg-white rounded-lg shadow p-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Select Dataset
         </label>
-        <select
-          value={selectedDataset || ''}
-          onChange={(e) => setSelectedDataset(Number(e.target.value))}
-          className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Choose a dataset...</option>
-          {datasets.map((dataset) => (
-            <option key={dataset.id} value={dataset.id}>
-              {dataset.name}
-            </option>
-          ))}
-        </select>
+        {datasets.length === 0 ? (
+          <div className="text-gray-500">
+            No datasets available. Please upload a dataset first.
+          </div>
+        ) : (
+          <select
+            value={selectedDataset || ''}
+            onChange={(e) => setSelectedDataset(Number(e.target.value))}
+            className="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Choose a dataset...</option>
+            {datasets.map((dataset) => (
+              <option key={dataset.id} value={dataset.id}>
+                {dataset.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
-      {selectedDataset && !loading && (
-        <>
-          {/* Tab Navigation */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="border-b border-gray-200">
-              <nav className="flex -mb-px">
-                <button
-                  onClick={() => setActiveTab('historical')}
-                  className={`px-6 py-3 border-b-2 font-medium text-sm ${
-                    activeTab === 'historical'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <TrendingUp className="w-4 h-4 inline mr-2" />
-                  Historical Data
-                </button>
-                <button
-                  onClick={() => setActiveTab('seasonality')}
-                  className={`px-6 py-3 border-b-2 font-medium text-sm ${
-                    activeTab === 'seasonality'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <Calendar className="w-4 h-4 inline mr-2" />
-                  Seasonality
-                </button>
-                <button
-                  onClick={() => setActiveTab('statistics')}
-                  className={`px-6 py-3 border-b-2 font-medium text-sm ${
-                    activeTab === 'statistics'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <BarChart3 className="w-4 h-4 inline mr-2" />
-                  Statistics
-                </button>
-              </nav>
-            </div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
+          <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
 
-            <div className="p-6">
-              {/* Historical Data Tab */}
-              {activeTab === 'historical' && historicalData && (
+      {selectedDataset && !loading && !error && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="border-b border-gray-200">
+            <nav className="flex -mb-px">
+              <button
+                onClick={() => setActiveTab('historical')}
+                className={`px-6 py-3 border-b-2 font-medium text-sm ${
+                  activeTab === 'historical'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4 inline mr-2" />
+                Historical Data
+              </button>
+              <button
+                onClick={() => setActiveTab('seasonality')}
+                className={`px-6 py-3 border-b-2 font-medium text-sm ${
+                  activeTab === 'seasonality'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Calendar className="w-4 h-4 inline mr-2" />
+                Seasonality
+              </button>
+              <button
+                onClick={() => setActiveTab('statistics')}
+                className={`px-6 py-3 border-b-2 font-medium text-sm ${
+                  activeTab === 'statistics'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4 inline mr-2" />
+                Statistics
+              </button>
+            </nav>
+          </div>
+
+          <div className="p-6">
+            {activeTab === 'historical' && historicalData && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">
+                  {historicalData.dataset_name} - Time Series
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  {historicalData.total_points} data points | Column: {historicalData.target_column}
+                </p>
+                <div className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={historicalData.data}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="value" stroke="#3B82F6" dot={false} name={historicalData.target_column} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'seasonality' && seasonality && (
+              <div className="space-y-8">
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">
-                    {historicalData.dataset_name} - Time Series
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    {historicalData.total_points} data points
-                  </p>
-                  <div className="h-96">
+                  <h3 className="text-lg font-semibold mb-4">Weekly Pattern</h3>
+                  <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={historicalData.data}>
+                      <BarChart data={seasonality.weekly_pattern}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="date" 
-                          tick={{ fontSize: 10 }}
-                          interval="preserveStartEnd"
-                        />
+                        <XAxis dataKey="day" />
                         <YAxis />
                         <Tooltip />
-                        <Legend />
-                        <Line 
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke="#3B82F6" 
-                          dot={false}
-                          name={historicalData.target_column}
-                        />
-                      </LineChart>
+                        <Bar dataKey="value" fill="#3B82F6" name="Average Value" />
+                      </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
-              )}
 
-              {/* Seasonality Tab */}
-              {activeTab === 'seasonality' && seasonality && (
-                <div className="space-y-8">
-                  {/* Weekly Pattern */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Weekly Pattern</h3>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={seasonality.weekly_pattern}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="day" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="value" fill="#3B82F6" name="Average Value" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* Monthly Pattern */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Monthly Pattern</h3>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={seasonality.monthly_pattern}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="value" fill="#10B981" name="Average Value" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* Trend */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Trend Analysis (7-day Rolling Average)</h3>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={seasonality.trend_data}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                          <YAxis />
-                          <Tooltip />
-                          <Legend />
-                          <Line type="monotone" dataKey="value" stroke="#94A3B8" dot={false} name="Actual" />
-                          <Line type="monotone" dataKey="trend" stroke="#EF4444" dot={false} strokeWidth={2} name="Trend" />
-                        </ComposedChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Statistics Tab */}
-              {activeTab === 'statistics' && statistics && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">Statistical Summary</h3>
-                  
-                  {/* Date Range */}
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-medium text-gray-700 mb-2">Date Range</h4>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Start Date</p>
-                        <p className="font-semibold">{statistics.date_range.start_date}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">End Date</p>
-                        <p className="font-semibold">{statistics.date_range.end_date}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Total Days</p>
-                        <p className="font-semibold">{statistics.date_range.total_days}</p>
-                      </div>
-                    </div>
+                  <h3 className="text-lg font-semibold mb-4">Monthly Pattern</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={seasonality.monthly_pattern}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#10B981" name="Average Value" />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
+                </div>
 
-                  {/* Statistics Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-600">Count</p>
-                      <p className="text-2xl font-bold text-blue-700">{statistics.statistics.count}</p>
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Trend Analysis (7-day Rolling Average)</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={seasonality.trend_data}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="value" stroke="#94A3B8" dot={false} name="Actual" />
+                        <Line type="monotone" dataKey="trend" stroke="#EF4444" dot={false} strokeWidth={2} name="Trend" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'statistics' && statistics && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Statistical Summary</h3>
+                
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-700 mb-2">Date Range</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Start Date</p>
+                      <p className="font-semibold">{statistics.date_range.start_date}</p>
                     </div>
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <p className="text-sm text-green-600">Mean</p>
-                      <p className="text-2xl font-bold text-green-700">{statistics.statistics.mean.toFixed(2)}</p>
+                    <div>
+                      <p className="text-sm text-gray-500">End Date</p>
+                      <p className="font-semibold">{statistics.date_range.end_date}</p>
                     </div>
-                    <div className="p-4 bg-purple-50 rounded-lg">
-                      <p className="text-sm text-purple-600">Median</p>
-                      <p className="text-2xl font-bold text-purple-700">{statistics.statistics.median.toFixed(2)}</p>
-                    </div>
-                    <div className="p-4 bg-orange-50 rounded-lg">
-                      <p className="text-sm text-orange-600">Std Dev</p>
-                      <p className="text-2xl font-bold text-orange-700">{statistics.statistics.std.toFixed(2)}</p>
-                    </div>
-                    <div className="p-4 bg-red-50 rounded-lg">
-                      <p className="text-sm text-red-600">Min</p>
-                      <p className="text-2xl font-bold text-red-700">{statistics.statistics.min.toFixed(2)}</p>
-                    </div>
-                    <div className="p-4 bg-teal-50 rounded-lg">
-                      <p className="text-sm text-teal-600">Max</p>
-                      <p className="text-2xl font-bold text-teal-700">{statistics.statistics.max.toFixed(2)}</p>
-                    </div>
-                    <div className="p-4 bg-indigo-50 rounded-lg">
-                      <p className="text-sm text-indigo-600">25th Percentile</p>
-                      <p className="text-2xl font-bold text-indigo-700">{statistics.statistics.q25.toFixed(2)}</p>
-                    </div>
-                    <div className="p-4 bg-pink-50 rounded-lg">
-                      <p className="text-sm text-pink-600">75th Percentile</p>
-                      <p className="text-2xl font-bold text-pink-700">{statistics.statistics.q75.toFixed(2)}</p>
+                    <div>
+                      <p className="text-sm text-gray-500">Total Days</p>
+                      <p className="font-semibold">{statistics.date_range.total_days}</p>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-600">Count</p>
+                    <p className="text-2xl font-bold text-blue-700">{statistics.statistics.count}</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <p className="text-sm text-green-600">Mean</p>
+                    <p className="text-2xl font-bold text-green-700">{statistics.statistics.mean.toFixed(2)}</p>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-lg">
+                    <p className="text-sm text-purple-600">Median</p>
+                    <p className="text-2xl font-bold text-purple-700">{statistics.statistics.median.toFixed(2)}</p>
+                  </div>
+                  <div className="p-4 bg-orange-50 rounded-lg">
+                    <p className="text-sm text-orange-600">Std Dev</p>
+                    <p className="text-2xl font-bold text-orange-700">{statistics.statistics.std.toFixed(2)}</p>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg">
+                    <p className="text-sm text-red-600">Min</p>
+                    <p className="text-2xl font-bold text-red-700">{statistics.statistics.min.toFixed(2)}</p>
+                  </div>
+                  <div className="p-4 bg-teal-50 rounded-lg">
+                    <p className="text-sm text-teal-600">Max</p>
+                    <p className="text-2xl font-bold text-teal-700">{statistics.statistics.max.toFixed(2)}</p>
+                  </div>
+                  <div className="p-4 bg-indigo-50 rounded-lg">
+                    <p className="text-sm text-indigo-600">25th Percentile</p>
+                    <p className="text-2xl font-bold text-indigo-700">{statistics.statistics.q25.toFixed(2)}</p>
+                  </div>
+                  <div className="p-4 bg-pink-50 rounded-lg">
+                    <p className="text-sm text-pink-600">75th Percentile</p>
+                    <p className="text-2xl font-bold text-pink-700">{statistics.statistics.q75.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </>
+        </div>
       )}
 
       {loading && (
@@ -285,7 +295,7 @@ const Visualization: React.FC = () => {
         </div>
       )}
 
-      {!selectedDataset && (
+      {!selectedDataset && !error && datasets.length > 0 && (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500">Select a dataset to view visualizations</p>
