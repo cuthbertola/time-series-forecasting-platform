@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment
+.env
+.env.local
+*.local
+
+# Database
+*.db
+*.sqlite3
+data/timeseries.db
+
+# ML Models (large files)
+data/models/*.joblib
+data/models/*.pkl
+*.joblib
+*.pkl
+
+# MLflow
+mlruns/
+mlflow/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build
+frontend/build/
+.next/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Uploads (keep directory but not files)
+data/uploads/*
+!data/uploads/.gitkeep
+
+# Logs
+*.log
+logs/
