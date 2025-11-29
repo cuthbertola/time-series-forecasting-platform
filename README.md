@@ -2,7 +2,19 @@
 
 An AI-powered time series forecasting platform with AutoML capabilities. Upload your data, automatically train and compare multiple forecasting models, and generate accurate predictions with confidence intervals.
 
-![Platform Screenshot](docs/images/dashboard.png)
+## 📸 Screenshots
+
+### Dashboard
+![Dashboard](docs/images/dashboard.png)
+
+### Dataset Management
+![Datasets](docs/images/datasets.png)
+
+### Model Training with AutoML
+![Training](docs/images/training.png)
+
+### Forecast Generation
+![Forecasts](docs/images/forecasts.png)
 
 ## ✨ Features
 
@@ -11,7 +23,7 @@ An AI-powered time series forecasting platform with AutoML capabilities. Upload 
 - **📈 Multiple Algorithms**: Prophet, ARIMA, XGBoost, LightGBM
 - **🎯 Model Comparison**: Side-by-side performance metrics (MAPE, RMSE, MAE)
 - **🔮 Forecast Generation**: Generate predictions with confidence intervals
-- **📉 Interactive Visualizations**: Beautiful charts powered by Recharts
+- **�� Interactive Visualizations**: Beautiful charts powered by Recharts
 - **🐳 Docker Ready**: Easy deployment with Docker Compose
 
 ## 🏗️ Architecture
@@ -46,7 +58,7 @@ An AI-powered time series forecasting platform with AutoML capabilities. Upload 
 ### Option 1: Docker (Recommended)
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/time-series-forecasting-platform.git
+git clone https://github.com/cuthbertola/time-series-forecasting-platform.git
 cd time-series-forecasting-platform
 
 # Start with Docker Compose
@@ -230,8 +242,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👤 Author
 
 **Olawale Badekale**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- LinkedIn: [Your LinkedIn](https://linkedin.com/in/yourprofile)
+- GitHub: [@cuthbertola](https://github.com/cuthbertola)
+- LinkedIn: [Olawale Badekale](https://linkedin.com/in/olawale-badekale)
 
 ## 🙏 Acknowledgments
 
