@@ -17,7 +17,7 @@ export const uploadDataset = async (file: File, name: string, description?: stri
   if (description) formData.append('description', description);
   if (dateColumn) formData.append('date_column', dateColumn);
   if (targetColumn) formData.append('target_column', targetColumn);
-
+  
   const response = await api.post('/datasets/', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
@@ -34,8 +34,8 @@ export const getDataset = async (id: number) => {
   return response.data;
 };
 
-export const previewDataset = async (id: number, rows: number = 10) => {
-  const response = await api.get(`/datasets/${id}/preview?rows=${rows}`);
+export const previewDataset = async (id: number) => {
+  const response = await api.get(`/datasets/${id}/preview`);
   return response.data;
 };
 
@@ -45,17 +45,17 @@ export const deleteDataset = async (id: number) => {
 };
 
 // Training APIs
-export const runAutoML = async (params: {
+export const runAutoML = async (config: {
   dataset_id: number;
   target_column: string;
   date_column: string;
   feature_columns?: string[];
   forecast_horizon?: number;
+  algorithms?: string[];
   max_trials?: number;
   timeout_seconds?: number;
-  algorithms?: string[];
 }) => {
-  const response = await api.post('/training/automl', params);
+  const response = await api.post('/training/automl', config);
   return response.data;
 };
 
@@ -65,8 +65,8 @@ export const getAutoMLRun = async (runId: number) => {
 };
 
 export const getModels = async (datasetId?: number) => {
-  const url = datasetId ? `/training/models?dataset_id=${datasetId}` : '/training/models';
-  const response = await api.get(url);
+  const params = datasetId ? { dataset_id: datasetId } : {};
+  const response = await api.get('/training/models', { params });
   return response.data;
 };
 
@@ -81,12 +81,12 @@ export const compareModels = async (datasetId: number) => {
 };
 
 // Forecast APIs
-export const generateForecast = async (params: {
+export const generateForecast = async (config: {
   model_id: number;
   forecast_horizon: number;
-  confidence_level?: number;
+  confidence_level: number;
 }) => {
-  const response = await api.post('/forecast/', params);
+  const response = await api.post('/forecast/', config);
   return response.data;
 };
 
@@ -97,6 +97,58 @@ export const getForecast = async (forecastId: number) => {
 
 export const getForecasts = async (datasetId: number) => {
   const response = await api.get(`/forecast/dataset/${datasetId}`);
+  return response.data;
+};
+
+// Visualization APIs
+export const getHistoricalData = async (datasetId: number) => {
+  const response = await api.get(`/visualization/historical/${datasetId}`);
+  return response.data;
+};
+
+export const getDatasetStatistics = async (datasetId: number) => {
+  const response = await api.get(`/visualization/statistics/${datasetId}`);
+  return response.data;
+};
+
+export const getSeasonalityAnalysis = async (datasetId: number) => {
+  const response = await api.get(`/visualization/seasonality/${datasetId}`);
+  return response.data;
+};
+
+// Export APIs
+export const getModelExportUrl = (modelId: number) => {
+  return `${API_BASE_URL}/export/model/${modelId}`;
+};
+
+export const getModelMetadata = async (modelId: number) => {
+  const response = await api.get(`/export/model/${modelId}/metadata`);
+  return response.data;
+};
+
+export const getModelPackageUrl = (modelId: number) => {
+  return `${API_BASE_URL}/export/model/${modelId}/package`;
+};
+
+export const getForecastCsvUrl = (forecastId: number) => {
+  return `${API_BASE_URL}/export/forecast/${forecastId}/csv`;
+};
+
+// Batch Prediction APIs
+export const getBatchTemplateUrl = () => {
+  return `${API_BASE_URL}/batch/template`;
+};
+
+export const uploadBatchPrediction = async (modelId: number, file: File, dateColumn: string, confidenceLevel: number = 0.95) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('date_column', dateColumn);
+  formData.append('confidence_level', confidenceLevel.toString());
+  
+  const response = await api.post(`/batch/predict/${modelId}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    responseType: 'blob'
+  });
   return response.data;
 };
 

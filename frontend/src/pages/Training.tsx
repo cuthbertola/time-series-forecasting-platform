@@ -1,186 +1,199 @@
-import React, { useEffect, useState } from 'react';
-import { Brain, Play, Loader, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { getDatasets, runAutoML, getAutoMLRun, getModels } from '../services/api';
-import { Dataset, AutoMLRun, TrainedModel } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Brain, Play, CheckCircle, XCircle, Download, Package } from 'lucide-react';
+import { getDatasets, runAutoML, getAutoMLRun, getModels, getModelExportUrl, getModelPackageUrl } from '../services/api';
+
+interface Dataset {
+  id: number;
+  name: string;
+  row_count: number;
+  status: string;
+}
+
+interface Model {
+  id: number;
+  name: string;
+  algorithm: string;
+  mape: number | null;
+  status: string;
+  is_best_model: boolean;
+}
+
+interface AutoMLRun {
+  id: number;
+  status: string;
+  best_algorithm: string | null;
+  all_results: any[] | null;
+  total_time_seconds: number | null;
+}
 
 const Training: React.FC = () => {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
-  const [models, setModels] = useState<TrainedModel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [training, setTraining] = useState(false);
+  const [models, setModels] = useState<Model[]>([]);
+  const [selectedDataset, setSelectedDataset] = useState<number | null>(null);
+  const [dateColumn, setDateColumn] = useState('date');
+  const [targetColumn, setTargetColumn] = useState('sales');
+  const [forecastHorizon, setForecastHorizon] = useState(30);
+  const [algorithms, setAlgorithms] = useState(['prophet', 'arima', 'xgboost', 'lightgbm']);
+  const [isTraining, setIsTraining] = useState(false);
   const [currentRun, setCurrentRun] = useState<AutoMLRun | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({
-    datasetId: '',
-    dateColumn: '',
-    targetColumn: '',
-    forecastHorizon: 30,
-    maxTrials: 50,
-    algorithms: ['prophet', 'arima', 'xgboost', 'lightgbm'],
-  });
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [datasetsRes, modelsRes] = await Promise.all([
-          getDatasets(),
-          getModels(),
-        ]);
-        setDatasets(datasetsRes.datasets || []);
-        setModels(modelsRes || []);
-      } catch (err) {
-        setError('Failed to fetch data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    fetchDatasets();
+    fetchModels();
   }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (currentRun && currentRun.status === 'running') {
       interval = setInterval(async () => {
-        try {
-          const updated = await getAutoMLRun(currentRun.id);
-          setCurrentRun(updated);
-          if (updated.status !== 'running') {
-            const modelsRes = await getModels();
-            setModels(modelsRes || []);
-          }
-        } catch (err) {
-          console.error('Failed to fetch run status');
+        const run = await getAutoMLRun(currentRun.id);
+        setCurrentRun(run);
+        if (run.status !== 'running') {
+          setIsTraining(false);
+          fetchModels();
         }
       }, 5000);
     }
     return () => clearInterval(interval);
   }, [currentRun]);
 
-  const handleDatasetChange = (datasetId: string) => {
-    const dataset = datasets.find(d => d.id === parseInt(datasetId));
-    setFormData(prev => ({
-      ...prev,
-      datasetId,
-      dateColumn: dataset?.date_column || '',
-      targetColumn: dataset?.target_column || '',
-    }));
+  const fetchDatasets = async () => {
+    try {
+      const data = await getDatasets();
+      setDatasets(data.filter((d: Dataset) => d.status === 'ready'));
+    } catch (error) {
+      console.error('Error fetching datasets:', error);
+    }
+  };
+
+  const fetchModels = async () => {
+    try {
+      const data = await getModels();
+      setModels(data);
+    } catch (error) {
+      console.error('Error fetching models:', error);
+    }
   };
 
   const handleStartTraining = async () => {
-    if (!formData.datasetId || !formData.dateColumn || !formData.targetColumn) {
-      setError('Please fill in all required fields');
-      return;
-    }
-
+    if (!selectedDataset) return;
+    
+    setIsTraining(true);
     try {
-      setTraining(true);
-      setError(null);
       const run = await runAutoML({
-        dataset_id: parseInt(formData.datasetId),
-        date_column: formData.dateColumn,
-        target_column: formData.targetColumn,
-        forecast_horizon: formData.forecastHorizon,
-        max_trials: formData.maxTrials,
-        algorithms: formData.algorithms,
+        dataset_id: selectedDataset,
+        target_column: targetColumn,
+        date_column: dateColumn,
+        forecast_horizon: forecastHorizon,
+        algorithms: algorithms,
       });
       setCurrentRun(run);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to start training');
-    } finally {
-      setTraining(false);
+    } catch (error) {
+      console.error('Error starting training:', error);
+      setIsTraining(false);
     }
   };
 
   const toggleAlgorithm = (algo: string) => {
-    setFormData(prev => ({
-      ...prev,
-      algorithms: prev.algorithms.includes(algo)
-        ? prev.algorithms.filter(a => a !== algo)
-        : [...prev.algorithms, algo],
-    }));
+    setAlgorithms(prev => 
+      prev.includes(algo) 
+        ? prev.filter(a => a !== algo)
+        : [...prev, algo]
+    );
+  };
+
+  const handleExportModel = (modelId: number) => {
+    window.open(getModelExportUrl(modelId), '_blank');
+  };
+
+  const handleExportPackage = (modelId: number) => {
+    window.open(getModelPackageUrl(modelId), '_blank');
   };
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-gray-900">Model Training</h1>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center">
-          <XCircle className="h-5 w-5 text-red-500 mr-2" />
-          <span className="text-red-700">{error}</span>
-          <button onClick={() => setError(null)} className="ml-auto">×</button>
+      {/* AutoML Configuration */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center space-x-2 mb-6">
+          <Brain className="w-6 h-6 text-green-600" />
+          <h2 className="text-xl font-semibold">AutoML Configuration</h2>
         </div>
-      )}
 
-      {/* Training Form */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-          <Brain className="h-6 w-6 mr-2 text-green-600" />
-          AutoML Configuration
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Dataset *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Dataset *
+            </label>
             <select
-              value={formData.datasetId}
-              onChange={(e) => handleDatasetChange(e.target.value)}
-              className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+              value={selectedDataset || ''}
+              onChange={(e) => setSelectedDataset(Number(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
             >
               <option value="">Select a dataset</option>
-              {datasets.filter(d => d.status === 'ready').map(d => (
-                <option key={d.id} value={d.id}>{d.name} ({d.row_count} rows)</option>
+              {datasets.map((dataset) => (
+                <option key={dataset.id} value={dataset.id}>
+                  {dataset.name} ({dataset.row_count} rows)
+                </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date Column *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Date Column *
+            </label>
             <input
               type="text"
-              value={formData.dateColumn}
-              onChange={(e) => setFormData(prev => ({ ...prev, dateColumn: e.target.value }))}
+              value={dateColumn}
+              onChange={(e) => setDateColumn(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               placeholder="e.g., date"
-              className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Target Column *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Target Column *
+            </label>
             <input
               type="text"
-              value={formData.targetColumn}
-              onChange={(e) => setFormData(prev => ({ ...prev, targetColumn: e.target.value }))}
+              value={targetColumn}
+              onChange={(e) => setTargetColumn(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               placeholder="e.g., sales"
-              className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Forecast Horizon (days)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Forecast Horizon (days)
+            </label>
             <input
               type="number"
-              value={formData.forecastHorizon}
-              onChange={(e) => setFormData(prev => ({ ...prev, forecastHorizon: parseInt(e.target.value) }))}
+              value={forecastHorizon}
+              onChange={(e) => setForecastHorizon(Number(e.target.value))}
               min={1}
               max={365}
-              className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
             />
           </div>
         </div>
 
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Algorithms</label>
+        <div className="mt-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Algorithms
+          </label>
           <div className="flex flex-wrap gap-2">
-            {['prophet', 'arima', 'xgboost', 'lightgbm'].map(algo => (
+            {['prophet', 'arima', 'xgboost', 'lightgbm'].map((algo) => (
               <button
                 key={algo}
                 onClick={() => toggleAlgorithm(algo)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  formData.algorithms.includes(algo)
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  algorithms.includes(algo)
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
                 {algo.toUpperCase()}
@@ -191,103 +204,141 @@ const Training: React.FC = () => {
 
         <button
           onClick={handleStartTraining}
-          disabled={training || (currentRun?.status === 'running')}
-          className="mt-6 w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center"
+          disabled={!selectedDataset || isTraining || algorithms.length === 0}
+          className={`mt-6 w-full py-3 rounded-lg font-medium flex items-center justify-center space-x-2 ${
+            !selectedDataset || isTraining || algorithms.length === 0
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-green-600 text-white hover:bg-green-700'
+          }`}
         >
-          {training || currentRun?.status === 'running' ? (
-            <><Loader className="h-5 w-5 animate-spin mr-2" /> Training in progress...</>
+          {isTraining ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <span>Training in progress...</span>
+            </>
           ) : (
-            <><Play className="h-5 w-5 mr-2" /> Start AutoML Training</>
+            <>
+              <Play className="w-5 h-5" />
+              <span>Start AutoML Training</span>
+            </>
           )}
         </button>
       </div>
 
-      {/* Current Run Status */}
+      {/* Training Status */}
       {currentRun && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Training Status</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Status:</span>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                currentRun.status === 'completed' ? 'bg-green-100 text-green-800' :
-                currentRun.status === 'running' ? 'bg-blue-100 text-blue-800' :
-                'bg-red-100 text-red-800'
-              }`}>
-                {currentRun.status}
-              </span>
-            </div>
-            {currentRun.best_algorithm && (
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Best Algorithm:</span>
-                <span className="font-medium">{currentRun.best_algorithm.toUpperCase()}</span>
-              </div>
-            )}
-            {currentRun.total_time_seconds && (
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Total Time:</span>
-                <span className="font-medium">{currentRun.total_time_seconds.toFixed(1)}s</span>
-              </div>
-            )}
-            {currentRun.all_results && (
-              <div className="mt-4">
-                <h3 className="font-medium mb-2">Results by Algorithm:</h3>
-                <div className="space-y-2">
-                  {currentRun.all_results.map((result, i) => (
-                    <div key={i} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                      <span className="font-medium">{result.algorithm.toUpperCase()}</span>
-                      <span className="text-sm">
-                        MAPE: {result.mape?.toFixed(2) || 'N/A'}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">Training Status</h2>
+          
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-gray-600">Status:</span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              currentRun.status === 'completed' ? 'bg-green-100 text-green-800' :
+              currentRun.status === 'failed' ? 'bg-red-100 text-red-800' :
+              'bg-blue-100 text-blue-800'
+            }`}>
+              {currentRun.status}
+            </span>
           </div>
+
+          {currentRun.best_algorithm && (
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-gray-600">Best Algorithm:</span>
+              <span className="font-semibold">{currentRun.best_algorithm.toUpperCase()}</span>
+            </div>
+          )}
+
+          {currentRun.total_time_seconds && (
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-gray-600">Total Time:</span>
+              <span className="font-semibold">{currentRun.total_time_seconds.toFixed(2)}s</span>
+            </div>
+          )}
+
+          {currentRun.all_results && currentRun.all_results.length > 0 && (
+            <div className="mt-4">
+              <h3 className="font-medium mb-2">Results by Algorithm:</h3>
+              <div className="space-y-2">
+                {currentRun.all_results.map((result, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="font-medium">{result.algorithm?.toUpperCase()}</span>
+                    <span className="text-gray-600">
+                      MAPE: {result.mape ? `${(result.mape * 100).toFixed(2)}%` : 'N/A'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Trained Models */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Trained Models</h2>
-        {loading ? (
-          <Loader className="h-8 w-8 animate-spin text-blue-500 mx-auto" />
-        ) : models.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">No models trained yet. Start training above!</p>
-        ) : (
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold mb-4">Trained Models</h2>
+        
+        {models.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Model</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Algorithm</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">MAPE</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Best</th>
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-gray-500 text-sm border-b">
+                  <th className="pb-3 font-medium">MODEL</th>
+                  <th className="pb-3 font-medium">ALGORITHM</th>
+                  <th className="pb-3 font-medium">MAPE</th>
+                  <th className="pb-3 font-medium">STATUS</th>
+                  <th className="pb-3 font-medium">BEST</th>
+                  <th className="pb-3 font-medium">ACTIONS</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody>
                 {models.map((model) => (
-                  <tr key={model.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900">{model.name}</td>
-                    <td className="px-6 py-4 text-gray-500">{model.algorithm.toUpperCase()}</td>
-                    <td className="px-6 py-4 text-gray-500">{model.mape?.toFixed(2) || '-'}%</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        model.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                  <tr key={model.id} className="border-b last:border-0">
+                    <td className="py-4">{model.name}</td>
+                    <td className="py-4">{model.algorithm.toUpperCase()}</td>
+                    <td className="py-4">
+                      {model.mape ? `${(model.mape * 100).toFixed(2)}%` : 'N/A'}
+                    </td>
+                    <td className="py-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        model.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        model.status === 'failed' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
                       }`}>
                         {model.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      {model.is_best_model && <CheckCircle className="h-5 w-5 text-green-500" />}
+                    <td className="py-4">
+                      {model.is_best_model && (
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      )}
+                    </td>
+                    <td className="py-4">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleExportModel(model.id)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                          title="Download Model"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleExportPackage(model.id)}
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"
+                          title="Download Package (Model + Metadata)"
+                        >
+                          <Package className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : (
+          <p className="text-gray-500 text-center py-8">
+            No models trained yet. Start training above!
+          </p>
         )}
       </div>
     </div>
